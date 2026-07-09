@@ -4,10 +4,17 @@ project(cli-vpn CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+add_compile_definitions(_WIN32_WINNT=0x0A00)
+
 # header files (.hpp)
 include_directories(include)
+
+include_directories(${CMAKE_SOURCE_DIR})
 
 # List the source files we want to compile right now
 add_executable(cli-vpn 
     src/main.cpp
+    src/api/vpngate_client.cpp
 )
+
+target_link_libraries(cli-vpn ws2_32 crypt32)

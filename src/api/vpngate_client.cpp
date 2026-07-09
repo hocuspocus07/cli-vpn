@@ -1,6 +1,6 @@
 #include "api_client.hpp"
 
-#define CPPHTTPLIB_OPENSSL_SUPPORT 
+// #define CPPHTTPLIB_OPENSSL_SUPPORT 
 #include "third_party/cpp-httplib/httplib.h"
 
 #include <iostream>
@@ -45,8 +45,8 @@ namespace VPNClient{
                 server.country_short=row_tokens[6];
 
                 //convert strings to numeric types
-                server.speed=stol(row_tokens[7]);
-                server.ping=stol(row_tokens[8]);
+                server.ping=stol(row_tokens[3]);
+                server.speed=stol(row_tokens[4]);
 
                 server.openvpn_config_base64=row_tokens[14];
 
