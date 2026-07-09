@@ -1,0 +1,5 @@
+guide.txt
+build/
+.vscode/
+*.ovpn
+*.conf
