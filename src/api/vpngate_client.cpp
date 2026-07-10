@@ -72,4 +72,17 @@ namespace VPNClient{
         }
         return tokens;
     }
+
+    double get_score(const VpnServer&server){
+        if (server.ping == -1) {
+            return -1.0; 
+        }
+        
+        return (server.speed / 1000.0) / (server.ping + 1.0);
+    }
+    void rank_servers(vector<VpnServer>&servers){
+        sort(servers.begin(),servers.end(),[](const VpnServer&a,const VpnServer&b){
+            return get_score(a) > get_score(b);
+        });
+    }
 }

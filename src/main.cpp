@@ -29,13 +29,16 @@ int main() {
         // Overwrite the fake API ping with real, native Windows ping
         active_servers[i].ping = true_ping; 
     }
-    
-    cout << "\n--- Sample of Retrieved Targets ---" << endl;
+    VPNClient::rank_servers(active_servers);
+    cout << "\n--- Sorted list of Retrieved Targets based on score---" << endl;
     for (const auto& server : active_servers) {
-        cout << "Location: " << server.country_long 
-             << " | IP: " << server.ip 
-             << " | Ping: " << server.ping << "ms"
-             << "\t| Speed: " << (server.speed / 1024 / 1024) << " Mbps" << endl;
+        if (server.ping != -1) {
+            cout << "Location: " << server.country_long 
+                << " | IP: " << server.ip 
+                << " | Ping: " << server.ping << "ms"
+                << "\t| Speed: " << (server.speed / 1024 / 1024) << " Mbps" 
+                << "\t| Score: " << VPNClient::get_score(server) << endl;
+        }
     }
     return 0;
 }

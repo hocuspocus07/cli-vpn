@@ -23,6 +23,8 @@ namespace VPNClient{
         private:
         std::vector<std::string>split_csv_line(std::string& line);
     };
+    double get_score(const VpnServer& server);
+    void rank_servers(std::vector<VpnServer>& servers);
 }
 
 #endif
