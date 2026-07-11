@@ -2,6 +2,7 @@
 #include <future>
 #include "api_client.hpp"
 #include "ping_helper.hpp"
+#include "process_mgr.hpp"
 using namespace std;
 
 int main() {
@@ -40,5 +41,14 @@ int main() {
                 << "\t| Score: " << VPNClient::get_score(server) << endl;
         }
     }
+
+    VPNClient::ProcessManager pm;
+    pm.launch("ping -t 8.8.8.8", [](const std::string& output) {
+        std::cout << "[DAEMON LOG]: " << output << "\n";
+    });
+    std::cout << "\nPress ENTER to terminate the child...\n";
+    std::cin.get();
+
+    pm.terminate();
     return 0;
 }
