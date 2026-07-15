@@ -30,7 +30,7 @@ This is a live learning project built in phases, progressively moving deeper int
 
 [x] Phase 1: Intelligent Data Pipeline: Memory-safe fetching and string-parsing of the VPN Gate Base64 CSV registry. (Planned: implementing a smart-scoring algorithm based on ping, uptime, and bandwidth).
 
-[ ] Phase 2: Process Supervision: Using POSIX fork/exec and Windows CreateProcess to spawn, monitor, and gracefully terminate background binaries. Handling pipe streams and POSIX signals.
+[x] Phase 2: Process Supervision: Using POSIX fork/exec and Windows CreateProcess to spawn, monitor, and gracefully terminate background binaries. Handling pipe streams and POSIX signals.
 
 [ ] Phase 3: Native Kernel Routing: Dropping shell commands to program directly against the OS network stack for route modification, metric priorities, and DNS state management.
 
