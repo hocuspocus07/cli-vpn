@@ -15,6 +15,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 add_executable(cli-vpn 
     src/main.cpp
     src/system/windows/process.cpp
+    src/system/windows/router.cpp
     src/api/vpngate_client.cpp
     src/api/ping_helper.cpp
 )
