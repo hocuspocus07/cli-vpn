@@ -101,13 +101,13 @@ int main()
         }
     }
     VPNClient::ProcessManager pm;
-VPNClient::OSRouter router;
+    VPNClient::OSRouter router;
 
     g_pm = &pm;
     g_router = &router;
 
     bool connected = false;
-
+    std::string vpnGateway;
     for (auto &server : active_servers)
     {
         cout << "\n=====================================\n";
@@ -128,9 +128,26 @@ VPNClient::OSRouter router;
         bool launched =
             pm.launch(
                 "openvpn --config tunnel.ovpn",
-                [&tunnel_ready](const string &output)
+                [&tunnel_ready, &vpnGateway](const string &output)
                 {
                     cout << "[OPENVPN] " << output << endl;
+
+                    size_t pos = output.find("route-gateway ");
+
+                    if (pos != std::string::npos)
+                    {
+                        pos += strlen("route-gateway ");
+
+                        size_t end = output.find(',', pos);
+
+                        vpnGateway =
+                            output.substr(pos, end - pos);
+
+                        std::cout
+                            << "[INFO] VPN Gateway: "
+                            << vpnGateway
+                            << std::endl;
+                    }
 
                     if (output.find(
                             "Initialization Sequence Completed") != string::npos)
@@ -177,6 +194,29 @@ VPNClient::OSRouter router;
         return 1;
     }
     auto adapter = router.find_openvpn_adapter();
+
+    if (!adapter)
+    {
+        std::cerr << "Failed to locate VPN adapter\n";
+        return 1;
+    }
+
+    adapter->gateway = vpnGateway;
+
+    g_adapter = &(*adapter);
+
+    std::cout << "\nFinal VPN Information\n";
+    std::cout << "Interface : "
+              << adapter->interface_index
+              << '\n';
+
+    std::cout << "IP        : "
+              << adapter->ip
+              << '\n';
+
+    std::cout << "Gateway   : "
+              << adapter->gateway
+              << '\n';
 
     // Block the main thread while the lambda callback listens in the background
     if (!pm.is_running())

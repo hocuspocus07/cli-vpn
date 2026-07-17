@@ -87,7 +87,7 @@ namespace VPNClient
 
         std::vector<BYTE> buffer(bufferSize);
 
-        IP_ADAPTER_ADDRESSES *adapters =
+        auto *adapters =
             reinterpret_cast<IP_ADAPTER_ADDRESSES *>(buffer.data());
 
         result = GetAdaptersAddresses(
@@ -104,7 +104,7 @@ namespace VPNClient
             return std::nullopt;
         }
 
-        for (IP_ADAPTER_ADDRESSES *adapter = adapters;
+        for (auto *adapter = adapters;
              adapter != nullptr;
              adapter = adapter->Next)
         {
@@ -134,7 +134,7 @@ namespace VPNClient
 
             if (adapter->FirstUnicastAddress)
             {
-                sockaddr_in *ipv4 =
+                auto *ipv4 =
                     reinterpret_cast<sockaddr_in *>(
                         adapter->FirstUnicastAddress->Address.lpSockaddr);
 
@@ -148,33 +148,6 @@ namespace VPNClient
 
                 vpn.ip = ip;
             }
-
-            //-----------------------
-            // Gateway
-            //-----------------------
-
-            if (adapter->FirstGatewayAddress)
-            {
-                sockaddr_in *gateway =
-                    reinterpret_cast<sockaddr_in *>(
-                        adapter->FirstGatewayAddress->Address.lpSockaddr);
-
-                char gw[INET_ADDRSTRLEN];
-
-                inet_ntop(
-                    AF_INET,
-                    &gateway->sin_addr,
-                    gw,
-                    sizeof(gw));
-
-                vpn.gateway = gw;
-            }
-
-            std::cout << "[INFO] VPN Adapter Found\n";
-            std::cout << " Name      : " << vpn.name << '\n';
-            std::cout << " Interface : " << vpn.interface_index << '\n';
-            std::cout << " IP        : " << vpn.ip << '\n';
-            std::cout << " Gateway   : " << vpn.gateway << '\n';
 
             return vpn;
         }
