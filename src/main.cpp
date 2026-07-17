@@ -88,7 +88,6 @@ int main()
         active_servers[i].ping = true_ping;
     }
     VPNClient::rank_servers(active_servers);
-    auto &best_server = active_servers[0];
     cout << "\n--- Sorted list of Retrieved Targets based on score---" << endl;
     for (const auto &server : active_servers)
     {
@@ -101,65 +100,90 @@ int main()
                  << "\t| Score: " << VPNClient::get_score(server) << endl;
         }
     }
-    // --- CONFIG EXTRACTION ---
-    cout << "[DAEMON] Decoding and writing configuration file..." << endl;
-
-    // Decode the Base64 string from your winning server
-    // (Make sure 'openvpn_config_base64' matches whatever you named the struct variable in Phase 1)
-    std::string raw_ovpn_text = decode_base64(best_server.openvpn_config_base64);
-
-    ofstream config_file("tunnel.ovpn");
-    config_file << raw_ovpn_text;
-    // config_file << "\nroute-noexec\n";
-    config_file.close();
-
-    // --- INSTANTIATE CORE SYSTEMS ---
     VPNClient::ProcessManager pm;
-    VPNClient::OSRouter router;
+VPNClient::OSRouter router;
 
-    // Assign to globals so our Ctrl+C handler can see them
     g_pm = &pm;
     g_router = &router;
 
-    atomic<bool> tunnel_ready = false;
+    bool connected = false;
 
-    cout << "[DAEMON] Spawning OpenVPN worker..." << endl;
-    bool launched = pm.launch("openvpn --config tunnel.ovpn", [&tunnel_ready](const string &output)
-                              {
-        // Print the OpenVPN logs to the console
-        cout << "[OPENVPN]: " << output << endl;
-        
-        // Listen for the magic words
-        if (output.find("Initialization Sequence Completed") != string::npos) {
-            tunnel_ready = true;
-        } });
-    if (!launched)
+    for (auto &server : active_servers)
+    {
+        cout << "\n=====================================\n";
+        cout << "Trying server: " << server.country_long
+             << " (" << server.ip << ")\n";
+        cout << "=====================================\n";
+
+        // Decode config
+        string raw_ovpn_text =
+            decode_base64(server.openvpn_config_base64);
+
+        ofstream config("tunnel.ovpn");
+        config << raw_ovpn_text;
+        config.close();
+
+        atomic<bool> tunnel_ready(false);
+
+        bool launched =
+            pm.launch(
+                "openvpn --config tunnel.ovpn",
+                [&tunnel_ready](const string &output)
+                {
+                    cout << "[OPENVPN] " << output << endl;
+
+                    if (output.find(
+                            "Initialization Sequence Completed") != string::npos)
+                    {
+                        tunnel_ready = true;
+                    }
+                });
+
+        if (!launched)
+        {
+            continue;
+        }
+
+        auto start =
+            chrono::steady_clock::now();
+
+        while (!tunnel_ready && pm.is_running())
+        {
+            if (chrono::steady_clock::now() - start >
+                chrono::seconds(15))
+            {
+                cout << "[TIMEOUT]\n";
+
+                pm.terminate();
+
+                break;
+            }
+
+            Sleep(100);
+        }
+
+        if (tunnel_ready)
+        {
+            connected = true;
+
+            cout << "\nConnected successfully!\n";
+
+            break;
+        }
+    }
+    if (!connected)
+    {
+        cerr << "\nNo VPN server accepted the connection.\n";
         return 1;
-
-    // --- WAIT FOR HANDSHAKE ---
-    cout << "[DAEMON] Waiting for cryptographic handshake..." << endl;
+    }
+    auto adapter = router.find_openvpn_adapter();
 
     // Block the main thread while the lambda callback listens in the background
-    while (!tunnel_ready && pm.is_running())
-    {
-        Sleep(100);
-    }
-
     if (!pm.is_running())
     {
         cerr << "[FATAL] VPN process crashed during startup." << endl;
         return 1;
     }
-
-    auto adapter = router.find_openvpn_adapter();
-
-    if (!adapter)
-    {
-        cerr << "Failed to locate VPN adapter\n";
-        return 1;
-    }
-
-    g_adapter = &(*adapter);
 
     // --- PHASE 3: INJECT KERNEL ROUTE ---
     cout << "\n[DAEMON] Tunnel ready. Hijacking Windows network routes..." << endl;
