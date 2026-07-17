@@ -18,7 +18,10 @@ namespace VPNClient
     }
     bool ProcessManager::launch(const std::string &command, std::function<void(const std::string &)> on_output)
     {
-        HANDLE hReadPipe = NULL;
+        if (monitorThread.joinable())
+        {
+            monitorThread.join();
+        }
         HANDLE hWritePipe = NULL;
         SECURITY_ATTRIBUTES saAttr;
 
@@ -28,7 +31,10 @@ namespace VPNClient
         saAttr.lpSecurityDescriptor = NULL;
 
         // 1. Create a pipe for the child process's STDOUT.
-        if (!CreatePipe(&hReadPipe, &hWritePipe, &saAttr, 0))
+        if (!CreatePipe(&this->hReadPipe,
+                        &hWritePipe,
+                        &saAttr,
+                        0))
         {
             std::cerr << "Error: CreatePipe failed.\n";
             return 1;
@@ -85,6 +91,10 @@ namespace VPNClient
 
     void ProcessManager::terminate()
     {
+        if (monitorThread.joinable())
+        {
+            monitorThread.join();
+        }
         if (hProcess)
         {
             TerminateProcess(hProcess, 0);
@@ -110,12 +120,15 @@ namespace VPNClient
 
     bool ProcessManager::is_running() const
     {
+        if (!hProcess)
+            return false;
         DWORD exitCode;
         if (!GetExitCodeProcess(this->hProcess, &exitCode) || exitCode != STILL_ACTIVE)
         {
             return false;
         }
-        return true;
+        return exitCode == STILL_ACTIVE;
+;
     }
 
     void ProcessManager::monitor_output(
