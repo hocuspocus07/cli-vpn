@@ -234,19 +234,19 @@ int main()
     // --- PHASE 3: INJECT KERNEL ROUTE ---
     cout << "\n[DAEMON] Tunnel ready. Hijacking Windows network routes..." << endl;
 
-    // if (router.add_route(
-    //         "0.0.0.0",
-    //         "0.0.0.0",
-    //         adapter->gateway,
-    //         adapter->interface_index,
-    //         1))
-    // {
-    //     cout << "[SUCCESS] Traffic secured. Press Ctrl+C to disconnect." << endl;
-    // }
-    // else
-    // {
-    //     cerr << "[WARNING] Route injection failed! Traffic might leak." << endl;
-    // }
+    if (router.add_route(
+            "0.0.0.0",
+            "0.0.0.0",
+            adapter->gateway,
+            adapter->interface_index,
+            1))
+    {
+        cout << "[SUCCESS] Traffic secured. Press Ctrl+C to disconnect." << endl;
+    }
+    else
+    {
+        cerr << "[WARNING] Route injection failed! Traffic might leak." << endl;
+    }
 
     // --- PHASE 4: THE SUPERVISION LOOP ---
     // Keep the C++ program alive as long as OpenVPN is running

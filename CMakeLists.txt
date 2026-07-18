@@ -18,6 +18,7 @@ add_executable(cli-vpn
     src/system/windows/router.cpp
     src/api/vpngate_client.cpp
     src/api/ping_helper.cpp
+    src/system/windows/network_monitor.cpp
 )
 
 target_link_libraries(cli-vpn ws2_32 crypt32 iphlpapi)
