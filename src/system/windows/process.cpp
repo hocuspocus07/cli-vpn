@@ -91,14 +91,25 @@ namespace VPNClient
 
     void ProcessManager::terminate()
     {
+        if (hProcess)
+        {
+            TerminateProcess(hProcess, 1);
+            WaitForSingleObject(hProcess, 5000);
+        }
+
+        if (hReadPipe)
+        {
+            CloseHandle(hReadPipe);
+            hReadPipe = NULL;
+        }
+
         if (monitorThread.joinable())
         {
             monitorThread.join();
         }
+
         if (hProcess)
         {
-            TerminateProcess(hProcess, 0);
-
             CloseHandle(hProcess);
             hProcess = NULL;
         }
@@ -107,12 +118,6 @@ namespace VPNClient
         {
             CloseHandle(hThread);
             hThread = NULL;
-        }
-
-        if (hReadPipe)
-        {
-            CloseHandle(hReadPipe);
-            hReadPipe = NULL;
         }
 
         std::cout << "Child terminated successfully\n";

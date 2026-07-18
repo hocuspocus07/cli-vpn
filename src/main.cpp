@@ -15,6 +15,7 @@ using namespace std;
 VPNClient::ProcessManager *g_pm = nullptr;
 VPNClient::OSRouter *g_router = nullptr;
 VPNClient::VPNInterface *g_adapter = nullptr;
+std::atomic<bool> g_shutdown_requested(false);
 
 #include <wincrypt.h>
 // IMPORTANT: If you aren't using CMake yet, uncomment the line below:
@@ -38,29 +39,34 @@ std::string decode_base64(const std::string &base64_str)
     return std::string(buffer.begin(), buffer.end());
 }
 
-void handle_shutdown(int signum)
+BOOL WINAPI console_ctrl_handler(DWORD ctrlType)
+{
+    if (ctrlType == CTRL_C_EVENT ||
+        ctrlType == CTRL_CLOSE_EVENT ||
+        ctrlType == CTRL_BREAK_EVENT ||
+        ctrlType == CTRL_LOGOFF_EVENT ||
+        ctrlType == CTRL_SHUTDOWN_EVENT)
+    {
+        g_shutdown_requested = true;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+void cleanup()
 {
     cout << "\n\n[DAEMON] Caught shutdown signal (Ctrl+C). Cleaning up..." << endl;
-    // if (g_router && g_adapter)
-    // {
-    //     g_router->delete_route(
-    //         "0.0.0.0",
-    //         "0.0.0.0",
-    //         g_adapter->gateway,
-    //         g_adapter->interface_index);
-    // }
     if (g_pm && g_pm->is_running())
     {
-        // Kill the OpenVPN background worker
         g_pm->terminate();
     }
     cout << "[DAEMON] Safe exit complete. Internet restored." << endl;
-    exit(signum);
 }
 
 int main()
 {
-    signal(SIGINT, handle_shutdown);
+    SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
     cout << "=== VPN Obfuscator CLI Initialized ===" << endl;
     VPNClient::VpnGateClient client;
 
@@ -127,7 +133,7 @@ int main()
 
         bool launched =
             pm.launch(
-                "openvpn --config tunnel.ovpn",
+                "openvpn --config tunnel.ovpn --route-noexec",
                 [&tunnel_ready, &vpnGateway](const string &output)
                 {
                     cout << "[OPENVPN] " << output << endl;
@@ -244,14 +250,20 @@ int main()
 
     // --- PHASE 4: THE SUPERVISION LOOP ---
     // Keep the C++ program alive as long as OpenVPN is running
-    while (pm.is_running())
+    while (pm.is_running() && !g_shutdown_requested)
     {
-        Sleep(1000);
+        Sleep(100);
+    }
+
+    if (g_shutdown_requested)
+    {
+        cleanup();
+        return 0;
     }
 
     // If we break out of the loop without the user pressing Ctrl+C, something went wrong
     cout << "\n[DAEMON] VPN worker stopped unexpectedly. Triggering fail-safe shutdown." << endl;
-    handle_shutdown(1);
+    cleanup();
 
     return 0;
 }
