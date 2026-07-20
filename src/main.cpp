@@ -63,6 +63,10 @@ void cleanup()
     {
         g_monitor->stop();
     }
+    if (g_router && g_adapter)
+    {
+        g_router->delete_route("0.0.0.0", "0.0.0.0", g_adapter->gateway, g_adapter->interface_index);
+    }
     if (g_pm && g_pm->is_running())
     {
         g_pm->terminate();

@@ -13,6 +13,23 @@ namespace VPNClient
     {
         MIB_IPFORWARDROW row;
         ZeroMemory(&row, sizeof(MIB_IPFORWARDROW));
+
+        in_addr addr{};
+
+        // 1. Build the IP addresses first
+        inet_pton(AF_INET, destination.c_str(), &addr);
+        row.dwForwardDest = addr.S_un.S_addr;
+
+        inet_pton(AF_INET, mask.c_str(), &addr);
+        row.dwForwardMask = addr.S_un.S_addr;
+
+        inet_pton(AF_INET, gateway.c_str(), &addr);
+        row.dwForwardNextHop = addr.S_un.S_addr;
+
+        // 2. Set the routing parameters
+        row.dwForwardIfIndex = interface_index;
+        row.dwForwardMetric1 = get_interface_metric(interface_index) + metric;
+        
         // Windows strictly requires unused metrics to be set to -1 
         row.dwForwardMetric2 = (DWORD)-1;
         row.dwForwardMetric3 = (DWORD)-1;
@@ -23,34 +40,30 @@ namespace VPNClient
         row.dwForwardProto = MIB_IPPROTO_NETMGMT;
         row.dwForwardAge = 0;
 
-        // --- ADD THIS DEFENSIVE LINE ---
-        // Silently attempt to delete the route in case a zombie from a previous crash exists.
-        // We don't care if it fails (it will fail 99% of the time on a clean run).
+        // 3. Defensive Deletion: Now that the row is fully populated, clear any zombies
         DeleteIpForwardEntry(&row); 
 
-        in_addr addr{};
-
-        inet_pton(AF_INET, destination.c_str(), &addr);
-        row.dwForwardDest = addr.S_un.S_addr;
-
-        inet_pton(AF_INET, mask.c_str(), &addr);
-        row.dwForwardMask = addr.S_un.S_addr;
-
-        inet_pton(AF_INET, gateway.c_str(), &addr);
-        row.dwForwardNextHop = addr.S_un.S_addr;
-        // 2. Set the remaining routing parameters
-        row.dwForwardIfIndex = interface_index;
-        row.dwForwardMetric1 =
-            get_interface_metric(interface_index) + metric;
-        // MIB_IPPROTO_NETMGMT tells the Windows Kernel that this route was added manually by the daemon
-        row.dwForwardProto = MIB_IPPROTO_NETMGMT;
-        // 3. Execute the kernel modification
-        // TODO: Call CreateIpForwardEntry(&row)
+        // 4. Execute the kernel modification
         DWORD result = CreateIpForwardEntry(&row);
+        
         if (result == NO_ERROR)
         {
             cout << "Route added successfully\n";
             return true;
+        }
+        else if (result == ERROR_OBJECT_ALREADY_EXISTS) // Error 5010
+        {
+            result = SetIpForwardEntry(&row);
+            if (result == NO_ERROR)
+            {
+                cout << "Existing route updated successfully\n";
+                return true;
+            }
+            else
+            {
+                cerr << "Failed to update existing route. Error code:" << result << "\n";
+                return false;
+            }
         }
         else
         {
@@ -63,12 +76,27 @@ namespace VPNClient
         MIB_IPFORWARDROW row;
         ZeroMemory(&row, sizeof(MIB_IPFORWARDROW));
 
+        in_addr addr{};
+
         // 1. Convert the std::string IP addresses into raw network bytes
-        inet_pton(AF_INET, destination.c_str(), &row.dwForwardDest);
-        inet_pton(AF_INET, mask.c_str(), &row.dwForwardMask);
-        inet_pton(AF_INET, gateway.c_str(), &row.dwForwardNextHop);
+        inet_pton(AF_INET, destination.c_str(), &addr);
+        row.dwForwardDest = addr.S_un.S_addr;
+
+        inet_pton(AF_INET, mask.c_str(), &addr);
+        row.dwForwardMask = addr.S_un.S_addr;
+
+        inet_pton(AF_INET, gateway.c_str(), &addr);
+        row.dwForwardNextHop = addr.S_un.S_addr;
 
         row.dwForwardIfIndex = interface_index;
+        row.dwForwardMetric1 = get_interface_metric(interface_index) + 1; 
+        
+        row.dwForwardMetric2 = (DWORD)-1;
+        row.dwForwardMetric3 = (DWORD)-1;
+        row.dwForwardMetric4 = (DWORD)-1;
+        row.dwForwardMetric5 = (DWORD)-1;
+
+        row.dwForwardType = MIB_IPROUTE_TYPE_INDIRECT;
         row.dwForwardProto = MIB_IPPROTO_NETMGMT;
 
         // 2. Execute the kernel modification
