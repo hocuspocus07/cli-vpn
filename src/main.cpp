@@ -11,12 +11,14 @@
 #include "process_mgr.hpp"
 #include "os_router.hpp"
 #include "network_monitor.hpp"
+#include "direct_transport.hpp"
 using namespace std;
 
 VPNClient::ProcessManager *g_pm = nullptr;
 VPNClient::OSRouter *g_router = nullptr;
 VPNClient::VPNInterface *g_adapter = nullptr;
 VPNClient::NetworkMonitor *g_monitor = nullptr;
+VPNClient::ITransport *g_transport = nullptr;
 std::atomic<bool> g_shutdown_requested(false);
 
 #include <wincrypt.h>
@@ -66,6 +68,10 @@ void cleanup()
     if (g_router && g_adapter)
     {
         g_router->delete_route("0.0.0.0", "0.0.0.0", g_adapter->gateway, g_adapter->interface_index);
+    }
+    if (g_transport)
+    {
+        g_transport->stop();
     }
     if (g_pm && g_pm->is_running())
     {
@@ -134,12 +140,25 @@ int main()
         cout << "=====================================\n";
 
         // Decode config
-        string raw_ovpn_text =
-            decode_base64(server.openvpn_config_base64);
+        VPNClient::DirectTransport transport;
+        g_transport = &transport;
+        
+        cout << "[TRANSPORT] Using " << transport.get_name() << " connection...\n";
+
+        string raw_ovpn_text;
+        if (!transport.prepare(server, raw_ovpn_text)) {
+            cerr << "[ERROR] Transport failed to prepare config.\n";
+            continue;
+        }
 
         ofstream config("tunnel.ovpn");
         config << raw_ovpn_text;
         config.close();
+
+        if (!transport.start()) {
+            cerr << "[ERROR] Transport proxy failed to start.\n";
+            continue;
+        }
 
         atomic<bool> tunnel_ready(false);
 
