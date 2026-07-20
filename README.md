@@ -34,7 +34,7 @@ This is a live learning project built in phases, progressively moving deeper int
 
 - [x] Phase 3: Native Kernel Routing: Dropping shell commands to program directly against the OS network stack for route modification, metric priorities, and DNS state management.
 
-- [ ] Phase 4: Resilience & Kill Switch: Implementing continuous connection monitoring (RTT/packet loss) and a network kill switch to prevent IP leakage during tunnel drops.
+- [x] Phase 4: Resilience & Kill Switch: Implementing continuous connection monitoring (RTT/packet loss) and a network kill switch to prevent IP leakage during tunnel drops.
 
 - [ ] Phase 5: Transport Obfuscation: Automating local proxy layers (like Stunnel) to wrap OpenVPN UDP signatures in standard TCP TLS handshakes.
 
