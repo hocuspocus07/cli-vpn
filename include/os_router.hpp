@@ -30,6 +30,9 @@ namespace VPNClient
         bool delete_route(const std::string &destination, const std::string &mask, const std::string &gateway, DWORD interface_index);
         
         std::optional<VPNInterface> find_openvpn_adapter();
+    
+        private:
+        DWORD get_interface_metric(DWORD ifIndex);
     };
 
 }

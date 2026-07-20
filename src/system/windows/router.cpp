@@ -14,18 +14,22 @@ namespace VPNClient
         MIB_IPFORWARDROW row;
         ZeroMemory(&row, sizeof(MIB_IPFORWARDROW));
 
-        // 1. Convert the std::string IP addresses into raw network bytes
-        inet_pton(AF_INET, destination.c_str(), &row.dwForwardDest);
-        inet_pton(AF_INET, mask.c_str(), &row.dwForwardMask);
-        inet_pton(AF_INET, gateway.c_str(), &row.dwForwardNextHop);
+        in_addr addr{};
+
+        inet_pton(AF_INET, destination.c_str(), &addr);
+        row.dwForwardDest = addr.S_un.S_addr;
+
+        inet_pton(AF_INET, mask.c_str(), &addr);
+        row.dwForwardMask = addr.S_un.S_addr;
+
+        inet_pton(AF_INET, gateway.c_str(), &addr);
+        row.dwForwardNextHop = addr.S_un.S_addr;
         // 2. Set the remaining routing parameters
         row.dwForwardIfIndex = interface_index;
-        row.dwForwardMetric1 = metric;
-
-        // MIB_IPPROTO_NETMGMT tells the Windows Kernel that this route was added
-        // manually by a network management software (your daemon).
+        row.dwForwardMetric1 =
+            get_interface_metric(interface_index) + metric;
+        // MIB_IPPROTO_NETMGMT tells the Windows Kernel that this route was added manually by the daemon
         row.dwForwardProto = MIB_IPPROTO_NETMGMT;
-
         // 3. Execute the kernel modification
         // TODO: Call CreateIpForwardEntry(&row)
         DWORD result = CreateIpForwardEntry(&row);
@@ -153,5 +157,18 @@ namespace VPNClient
         }
 
         return std::nullopt;
+    }
+
+    DWORD OSRouter::get_interface_metric(DWORD ifIndex)
+    {
+        MIB_IPINTERFACE_ROW iface;
+        InitializeIpInterfaceEntry(&iface);
+
+        iface.Family = AF_INET;
+        iface.InterfaceIndex = ifIndex;
+
+        if (GetIpInterfaceEntry(&iface) != NO_ERROR)
+            return 300; // fallback
+        return iface.Metric;
     }
 }
