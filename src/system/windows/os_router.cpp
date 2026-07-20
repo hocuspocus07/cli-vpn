@@ -13,6 +13,20 @@ namespace VPNClient
     {
         MIB_IPFORWARDROW row;
         ZeroMemory(&row, sizeof(MIB_IPFORWARDROW));
+        // Windows strictly requires unused metrics to be set to -1 
+        row.dwForwardMetric2 = (DWORD)-1;
+        row.dwForwardMetric3 = (DWORD)-1;
+        row.dwForwardMetric4 = (DWORD)-1;
+        row.dwForwardMetric5 = (DWORD)-1;
+
+        row.dwForwardType = MIB_IPROUTE_TYPE_INDIRECT;
+        row.dwForwardProto = MIB_IPPROTO_NETMGMT;
+        row.dwForwardAge = 0;
+
+        // --- ADD THIS DEFENSIVE LINE ---
+        // Silently attempt to delete the route in case a zombie from a previous crash exists.
+        // We don't care if it fails (it will fail 99% of the time on a clean run).
+        DeleteIpForwardEntry(&row); 
 
         in_addr addr{};
 

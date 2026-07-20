@@ -10,11 +10,13 @@
 #include "ping_helper.hpp"
 #include "process_mgr.hpp"
 #include "os_router.hpp"
+#include "network_monitor.hpp"
 using namespace std;
 
 VPNClient::ProcessManager *g_pm = nullptr;
 VPNClient::OSRouter *g_router = nullptr;
 VPNClient::VPNInterface *g_adapter = nullptr;
+VPNClient::NetworkMonitor *g_monitor = nullptr;
 std::atomic<bool> g_shutdown_requested(false);
 
 #include <wincrypt.h>
@@ -57,6 +59,10 @@ BOOL WINAPI console_ctrl_handler(DWORD ctrlType)
 void cleanup()
 {
     cout << "\n\n[DAEMON] Caught shutdown signal (Ctrl+C). Cleaning up..." << endl;
+    if (g_monitor) 
+    {
+        g_monitor->stop();
+    }
     if (g_pm && g_pm->is_running())
     {
         g_pm->terminate();
@@ -108,9 +114,11 @@ int main()
     }
     VPNClient::ProcessManager pm;
     VPNClient::OSRouter router;
+    VPNClient::NetworkMonitor monitor;
 
     g_pm = &pm;
     g_router = &router;
+    g_monitor=&monitor;
 
     bool connected = false;
     std::string vpnGateway;
@@ -242,6 +250,7 @@ int main()
             1))
     {
         cout << "[SUCCESS] Traffic secured. Press Ctrl+C to disconnect." << endl;
+        monitor.start(adapter->interface_index);
     }
     else
     {

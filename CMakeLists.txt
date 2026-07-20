@@ -14,8 +14,8 @@ include_directories(${CMAKE_SOURCE_DIR})
 # List the source files we want to compile right now
 add_executable(cli-vpn 
     src/main.cpp
-    src/system/windows/process.cpp
-    src/system/windows/router.cpp
+    src/system/windows/process_mgr.cpp
+    src/system/windows/os_router.cpp
     src/api/vpngate_client.cpp
     src/api/ping_helper.cpp
     src/system/windows/network_monitor.cpp
