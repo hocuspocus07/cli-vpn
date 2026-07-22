@@ -12,6 +12,7 @@
 #include "os_router.hpp"
 #include "network_monitor.hpp"
 #include "direct_transport.hpp"
+#include "custom_relay_transport.hpp"
 using namespace std;
 
 VPNClient::ProcessManager *g_pm = nullptr;
@@ -61,7 +62,7 @@ BOOL WINAPI console_ctrl_handler(DWORD ctrlType)
 void cleanup()
 {
     cout << "\n\n[DAEMON] Caught shutdown signal (Ctrl+C). Cleaning up..." << endl;
-    if (g_monitor) 
+    if (g_monitor)
     {
         g_monitor->stop();
     }
@@ -85,7 +86,26 @@ int main()
     SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
     cout << "=== VPN Obfuscator CLI Initialized ===" << endl;
     VPNClient::VpnGateClient client;
+    // --- TRANSPORT SELECTION PROMPT ---
+    cout << "\n[NETWORK] Select Transport Mode:\n";
+    cout << "1. DIRECT  (Max Speed, No Obfuscation)\n";
+    cout << "2. CUSTOM RELAY (High Stealth)\n";
+    cout << "Choice (1/2): ";
 
+    int transport_choice;
+    cin >> transport_choice;
+
+    // We use a unique_ptr so the memory cleans itself up automatically
+    std::unique_ptr<VPNClient::ITransport> transport;
+
+    if (transport_choice == 2)
+    {
+        transport = std::make_unique<VPNClient::CustomRelayTransport>();
+    }
+    else
+    {
+        transport = std::make_unique<VPNClient::DirectTransport>(); // Default
+    }
     vector<VPNClient::VpnServer> active_servers = client.fetch_servers();
 
     if (active_servers.empty())
@@ -128,7 +148,7 @@ int main()
 
     g_pm = &pm;
     g_router = &router;
-    g_monitor=&monitor;
+    g_monitor = &monitor;
 
     bool connected = false;
     std::string vpnGateway;
@@ -140,22 +160,26 @@ int main()
         cout << "=====================================\n";
 
         // Decode config
-        VPNClient::DirectTransport transport;
-        g_transport = &transport;
-        
-        cout << "[TRANSPORT] Using " << transport.get_name() << " connection...\n";
+        g_transport = transport.get();
 
+        cout << "[TRANSPORT] Using " << transport->get_name() << " connection...\n";
+
+        // 2. Ask the transport to prepare the config
         string raw_ovpn_text;
-        if (!transport.prepare(server, raw_ovpn_text)) {
+        if (!transport->prepare(server, raw_ovpn_text))
+        {
             cerr << "[ERROR] Transport failed to prepare config.\n";
             continue;
         }
 
+        // 3. Write the prepared config to disk
         ofstream config("tunnel.ovpn");
         config << raw_ovpn_text;
         config.close();
 
-        if (!transport.start()) {
+        // 4. Start the transport (Does nothing for Direct, launches proxy for others)
+        if (!transport->start())
+        {
             cerr << "[ERROR] Transport proxy failed to start.\n";
             continue;
         }
@@ -209,6 +233,7 @@ int main()
                 cout << "[TIMEOUT]\n";
 
                 pm.terminate();
+                transport->stop();
 
                 break;
             }
