@@ -8,17 +8,34 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write #Gives the AI permission to leave a comment on commit
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2 # Grabs the last 2 commits so it can compare what changed
+          fetch-depth: 2 # Fetches the last 2 commits to compare what changed
 
-      - name: Run Gemini Code Review
-        uses: rokit-dev/gemini-code-review-action@v1 # A popular open-source Action
+      - name: Generate Diff and Review
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Built-in GitHub token
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} 
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # 1. Get the changes from your latest push
+          git diff HEAD^ HEAD > diff.txt
+          
+          # 2. Safely package the diff into a JSON payload
+          jq -n --arg diff "$(cat diff.txt)" '{
+            "contents": [{
+              "parts": [{
+                "text": ("Please review this code commit for security vulnerabilities, performance, and logic issues:\n\n" + $diff)
+              }]
+            }]
+          }' > payload.json
+          
+          # 3. Send to Gemini API
+          RESPONSE=$(curl -s -H 'Content-Type: application/json' \
+            -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=$GEMINI_API_KEY" \
+            -d @payload.json)
+            
+          # 4. Extract the review text and write it to the GitHub Actions Step Summary
+          echo "## AI Code Review Results" >> $GITHUB_STEP_SUMMARY
+          echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "Review failed or diff was empty."' >> $GITHUB_STEP_SUMMARY
