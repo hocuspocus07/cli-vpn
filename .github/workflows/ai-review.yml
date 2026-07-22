@@ -1,0 +1,24 @@
+name: AI Code Review on Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write #Gives the AI permission to leave a comment on commit
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Grabs the last 2 commits so it can compare what changed
+
+      - name: Run Gemini Code Review
+        uses: rokit-dev/gemini-code-review-action@v1 # A popular open-source Action
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Built-in GitHub token
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} 
